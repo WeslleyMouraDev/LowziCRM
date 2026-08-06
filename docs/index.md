@@ -29,6 +29,7 @@ de menor precedência e registre.
 | [`README.md`](../README.md) | O que é, quickstart de 5 min, stack, roadmap. Também em [EN](../README.en.md) / [ES](../README.es.md) |
 | [`VISION.md`](../VISION.md) | Posicionamento, por que self-host, para quem |
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Arquitetura em 1 página |
+| [`docs/VIBE_CODING.md`](VIBE_CODING.md) | **Guia supremo de Vibe Coding com IA & Graphify.** Navegação acelerada, 5 camadas, templates e esteira |
 | [`AGENTS.md`](../AGENTS.md) | Contrato para agentes de código (qualquer ferramenta) |
 | [`CLAUDE.md`](../CLAUDE.md) | **Doutrina não-negociável.** Convenções, anti-patterns, Definition of Done |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Como contribuir |
@@ -133,10 +134,9 @@ Documentação de *processo*. Alta rotatividade; trate como estado, não como co
 
 ## 9. Grafo de conhecimento
 
-`graphify-out/` — grafo do repositório (7310 nós, 17705 arestas, 538 comunidades na última
-geração). Consulte via skill `graphify` antes de varrer código bruto. `GRAPH_REPORT.md` traz
-god nodes, hyperedges e comunidades. **Gerado — não editar.** ⚠️ Foi gerado contra uma árvore
-anterior à v1.0.0; regenere (`/graphify .`) antes de confiar em detalhe fino.
+`graphify-out/` — grafo do repositório (**18.414 nós, 30.411 arestas, 1.190 comunidades** na última
+geração). Consulte via skill `graphify` antes de varrer código bruto. [`GRAPH_REPORT.md`](../graphify-out/GRAPH_REPORT.md) traz
+god nodes, hyperedges e comunidades. **Gerado — não editar.** Para atualizar após alterações de código, execute `graphify update .`.
 
 ---
 
