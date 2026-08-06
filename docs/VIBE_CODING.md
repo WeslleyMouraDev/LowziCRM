@@ -120,6 +120,7 @@ graph TB
 ### Camada 5: App Router UI
 - **Localização**: `app/app/`, `app/actions/`, componentes Tailwind + shadcn/ui.
 - **Responsabilidade**: Interface visual autenticada para o usuário final. Deve consumir chamadas server actions ou rotas REST protegidas.
+- **Rebranding & Identidade Visual**: Para personalização de marca (Nível 1 `.env` ou Nível 2 Design System, paleta de cores e tipografia via Vibe Coding), veja o [`Guia de Rebranding e Identidade Visual (White-Label) com Vibe Coding`](WHITE_LABEL_VIBE_CODING.md).
 
 ---
 

@@ -30,6 +30,7 @@ de menor precedência e registre.
 | [`VISION.md`](../VISION.md) | Posicionamento, por que self-host, para quem |
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Arquitetura em 1 página |
 | [`docs/VIBE_CODING.md`](VIBE_CODING.md) | **Guia supremo de Vibe Coding com IA & Graphify.** Navegação acelerada, 5 camadas, templates e esteira |
+| [`docs/WHITE_LABEL_VIBE_CODING.md`](WHITE_LABEL_VIBE_CODING.md) | **Guia de Rebranding e Identidade Visual (White-Label) com Vibe Coding.** Níveis 1 e 2, paleta Sage, tokens CSS e prompts |
 | [`AGENTS.md`](../AGENTS.md) | Contrato para agentes de código (qualquer ferramenta) |
 | [`CLAUDE.md`](../CLAUDE.md) | **Doutrina não-negociável.** Convenções, anti-patterns, Definition of Done |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Como contribuir |

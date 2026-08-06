@@ -27,11 +27,11 @@ Trocar a marca editando os arquivos-fonte funciona **uma vez**. No próximo `bas
 
 Configuração no `.env` sobrevive a toda atualização. É por isso que a marca é lida em tempo de execução e não embutida na compilação: uma única imagem Docker serve qualquer marca.
 
-### O que ainda não é configurável
+### O que ainda não é configurável via .env (Rebranding Nível 2)
 
 Sendo direto, para você não descobrir na frente do cliente:
 
-- **Cores, fontes e tema** não são configuráveis por variável. Exigem alterar o design system (`app/globals.css` e os tokens), e essa alteração **é** um patch que se perde no update.
+- **Cores, fontes e tema** não são configuráveis apenas por variável `.env`. Exigem alterar os tokens do design system (`app/globals.css` e `app/layout.tsx`). Para um guia completo de rebranding Nível 2 (Design System, fontes, paleta Sage, favicons e prompts para Vibe Coding com IA), consulte o [`Guia de Rebranding e Identidade Visual (White-Label) com Vibe Coding`](WHITE_LABEL_VIBE_CODING.md).
 - **A marca é por instalação, não por organização.** Uma instalação com várias organizações mostra a mesma marca para todas. Se cada cliente precisa da própria marca, use uma instalação por cliente (ver abaixo) — que também é o modelo que rende melhor.
 - **Textos e e-mails transacionais** seguem o padrão do produto.
 
