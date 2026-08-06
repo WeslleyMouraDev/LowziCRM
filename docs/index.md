@@ -31,7 +31,7 @@ de menor precedência e registre.
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Arquitetura em 1 página |
 | [`docs/VIBE_CODING.md`](VIBE_CODING.md) | **Guia supremo de Vibe Coding com IA & Graphify.** Navegação acelerada, 5 camadas, templates e esteira |
 | [`docs/WHITE_LABEL_VIBE_CODING.md`](WHITE_LABEL_VIBE_CODING.md) | **Guia de Rebranding e Identidade Visual (White-Label) com Vibe Coding.** Níveis 1 e 2, paleta Sage, tokens CSS e prompts |
-| [`docs/MINIMAX_INTEGRATION.md`](MINIMAX_INTEGRATION.md) | **Guia de Integração MiniMax AI para Vibe Coding e CRM Runtime.** Configuração Claude Code/AGY, SDKs e Egress Allowlist |
+| [`docs/MINIMAX_INTEGRATION.md`](MINIMAX_INTEGRATION.md) | **Guia de Integração MiniMax AI no DeskcommCRM.** Configuração de credenciais BYOK, Agent Engine e Egress Allowlist. |
 | [`AGENTS.md`](../AGENTS.md) | Contrato para agentes de código (qualquer ferramenta) |
 | [`CLAUDE.md`](../CLAUDE.md) | **Doutrina não-negociável.** Convenções, anti-patterns, Definition of Done |
 | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Como contribuir |

@@ -1,103 +1,83 @@
-# Guia de Integração MiniMax AI para Vibe Coding e CRM Runtime
+# Guia de Integração MiniMax AI no DeskcommCRM
 
-> Como configurar os modelos de alta performance da MiniMax AI tanto no seu ambiente local de **Vibe Coding** (Claude Code, AGY, Cursor) quanto no **Runtime de Agentes do DeskcommCRM** (`lib/agent-engine/`).
+> Instruções completas para integração e configuração do provedor de LLM **MiniMax AI** nos Agentes de IA do **DeskcommCRM**, cobrindo gestão de credenciais BYOK, arquitetura do Agent Engine (`lib/agent-engine/`) e contenção de egress.
 
 ---
 
 ## 1. Visão Geral
 
-A **MiniMax AI** oferece uma família de LLMs de altíssima velocidade e eficiência de custo/desempenho (modelos **M-series**, como `minimax-text-01` e variantes M-series). 
+A **MiniMax AI** é um provedor de Inteligência Artificial de alta performance que oferece modelos LLM eficientes (linha **M-series**, como `minimax-text-01`). No DeskcommCRM, a MiniMax serve como engine de inteligência para a camada de Agentes de IA responsáveis por atendimento automatizado via WhatsApp, triagem e RAG (Retrieval-Augmented Generation) por tenant, além de classificação de leads.
 
 Uma das principais vantagens da plataforma MiniMax é a sua **arquitetura de compatibilidade dual**:
-- **Compatibilidade Anthropic API**: Permite apontar ferramentas como Claude Code e a biblioteca `@ai-sdk/anthropic` diretamente para o endpoint Anthropic-compatible da MiniMax, mantendo o formato de mensagens, system prompts e tool calling.
-- **Compatibilidade OpenAI API**: Permite consumo direto usando a estrutura OpenAI v1 (`@ai-sdk/openai`), facilitando a substituição transparente ou fallback de modelos.
 
-No DeskcommCRM, a MiniMax pode ser utilizada tanto como o **engine de inteligência para o desenvolvedor (Vibe Coding)** quanto como **provedor de LLM para os Agentes de IA do CRM** em produção.
-
----
-
-## 2. Configurando MiniMax para Ferramentas de Vibe Coding (Claude Code, AGY, Cursor)
-
-Para utilizar a MiniMax AI como backend LLM em ferramentas como **Claude Code**, **AGY (Antigravity CLI)** ou **Cursor**, siga o passo a passo abaixo.
-
-### Passo 1: Limpeza de Variáveis Conflitantes
-Se você utilizou anteriormente tokens do Claude ou rotas legadas, limpe as variáveis no terminal para evitar conflitos de autenticação:
-
-```bash
-unset ANTHROPIC_AUTH_TOKEN
-unset ANTHROPIC_BASE_URL
-```
-
-> **Nota**: O uso de `ANTHROPIC_AUTH_TOKEN` pode se sobrepor à `ANTHROPIC_API_KEY`. Certifique-se de removê-lo antes de aplicar a chave da MiniMax.
-
-### Passo 2: Configuração no `~/.claude/settings.json`
-Edite ou crie o arquivo de configurações do Claude Code (`~/.claude/settings.json`) incluindo o bloco `"env"` com o endpoint da MiniMax:
-
-```json
-{
-  "env": {
-    "ANTHROPIC_BASE_URL": "https://api.minimax.io/anthropic",
-    "ANTHROPIC_API_KEY": "<SUA_MINIMAX_API_KEY>"
-  }
-}
-```
-
-> **Atenção (Usuários na China / Região Ásia-Pacífico)**: Se estiver operando em infraestrutura na China Continental, utilize o endpoint local:
-> ```json
-> "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic"
-> ```
-
-### Passo 3: Uso via Variáveis de Ambiente Globais
-Para persistir a configuração no seu terminal (Bash ou Zsh), adicione as exportações ao seu `~/.bashrc` ou `~/.zshrc`:
-
-```bash
-# Adicione ao ~/.bashrc ou ~/.zshrc
-export ANTHROPIC_BASE_URL="https://api.minimax.io/anthropic"
-export ANTHROPIC_API_KEY="<SUA_MINIMAX_API_KEY>"
-```
-
-Carregue a nova configuração com `source ~/.bashrc` (ou `source ~/.zshrc`).
+- **Anthropic-compatible API** (`https://api.minimax.io/anthropic`): Permite instanciar o provedor utilizando o pacote `@ai-sdk/anthropic`, mantendo a mesma estrutura de mensagens, system prompts e suporte a chamadas de ferramentas (*tool calling*).
+- **OpenAI-compatible API** (`https://api.minimax.io/v1`): Permite integração utilizando o pacote `@ai-sdk/openai`, facilitando a interoperabilidade e substituição transparente com APIs baseadas no padrão OpenAI.
 
 ---
 
-## 3. Configurando MiniMax no Runtime do DeskcommCRM (`lib/agent-engine/`)
+## 2. Gestão de Credenciais no DeskcommCRM
 
-No DeskcommCRM, a camada agnóstica de LLMs (`lib/agent-engine/edge/llm/providers.ts`) faz a ponte entre os agentes e as APIs de inteligência usando a Vercel AI SDK.
+O DeskcommCRM adota uma arquitetura de segurança multi-tenant baseada em isolamento de credenciais, oferecendo suporte tanto a chaves globais da plataforma quanto a credenciais próprias de cada organização (BYOK).
 
-### Exemplo em TypeScript usando `@ai-sdk/anthropic`
-Graças ao endpoint Anthropic-compatible da MiniMax, você pode instanciar o provedor utilizando `@ai-sdk/anthropic`:
+### Variável de Ambiente (`.env`)
+
+Para fornecer uma chave de fallback no nível da plataforma (utilizada quando uma organização não possui chave BYOK cadastrada ou em rotinas do sistema), configure a seguinte variável no arquivo `.env`:
+
+```env
+MINIMAX_API_KEY="sua_chave_minimax_aqui"
+```
+
+> **Nota**: Lembre-se de registrar a variável em `.env.example` e na validação centralizada de variáveis em `lib/env.ts`.
+
+### BYOK (Bring Your Own Key) por Organização
+
+Para garantir o isolamento total de custos e limites por tenant, cada organização pode cadastrar sua própria chave da MiniMax na tabela `ai_provider_credentials`.
+
+- **Tabela**: `ai_provider_credentials`
+- **Campos**: `organization_id`, `provider` (`'minimax'`), `api_key_hash` / segredo criptografado.
+- **Funcionamento**: A cada execução do Agent Engine, a chave da MiniMax correspondente ao `organization_id` autenticado é recuperada de forma segura para instanciar o provedor sob demanda (sem pool global compartilhado).
+
+---
+
+## 3. Arquitetura do Agent Engine (`lib/agent-engine/`)
+
+A camada de inteligência do DeskcommCRM (`lib/agent-engine/edge/llm/providers.ts`) é agnóstica de fornecedor e utiliza os SDKs da Vercel AI SDK (`@ai-sdk/anthropic` e `@ai-sdk/openai`).
+
+### Registro do Provedor em `lib/agent-engine/edge/llm/providers.ts`
+
+#### Exemplo em TypeScript usando `@ai-sdk/anthropic`
 
 ```typescript
 import { createAnthropic } from '@ai-sdk/anthropic';
 
 const minimaxAnthropic = createAnthropic({
   baseURL: 'https://api.minimax.io/anthropic',
-  apiKey: process.env.MINIMAX_API_KEY,
+  apiKey: apiKey,
 });
 
 // Instanciando o modelo MiniMax M-series
 const model = minimaxAnthropic('minimax-text-01');
 ```
 
-### Exemplo em TypeScript usando `@ai-sdk/openai`
-Se optar pela interface compatível com OpenAI API:
+#### Exemplo em TypeScript usando `@ai-sdk/openai`
 
 ```typescript
 import { createOpenAI } from '@ai-sdk/openai';
 
 const minimaxOpenAI = createOpenAI({
   baseURL: 'https://api.minimax.io/v1',
-  apiKey: process.env.MINIMAX_API_KEY,
+  apiKey: apiKey,
 });
 
-// Instanciando o modelo MiniMax via OpenAI compatibility layer
+// Instanciando o modelo MiniMax via camada compatível com OpenAI
 const model = minimaxOpenAI('minimax-text-01');
 ```
 
-### Atualização na Egress Allowlist (`lib/agent-engine/edge/llm/providers.ts`)
-O DeskcommCRM possui uma camada estrita de contenção de tráfego de saída (Egress Security). Por padrão, todo `fetch` feito pelos provedores de LLM é filtrado por uma allowlist.
+### Contenção de Egress (Egress Security Allowlist)
 
-Para autorizar as chamadas HTTP para os servidores da MiniMax, adicione os endpoints `https://api.minimax.io` e `https://api.minimaxi.com` às constantes de endpoints ou ao parâmetro `allowedHosts` ao criar o registry:
+O DeskcommCRM possui uma camada estrita de contenção de tráfego de saída (*Egress Security*). Por padrão, todas as requisições HTTP feitas pelos SDKs de LLM são interceptadas e validadas por uma allowlist via `allowlistedFetch`.
+
+Para autorizar o tráfego de saída destinado aos servidores da MiniMax, adicione os endpoints `https://api.minimax.io` e `https://api.minimaxi.com` (endpoint da região Ásia-Pacífico/China) à allowlist do `allowlistedFetch` em `lib/agent-engine/edge/llm/providers.ts`:
 
 ```typescript
 // Em lib/agent-engine/edge/llm/providers.ts
@@ -107,8 +87,7 @@ const MINIMAX_CHINA_ENDPOINT = 'https://api.minimaxi.com';
 
 export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): ProviderRegistry {
   const extra = opts?.allowedHosts ?? [];
-  
-  // Inclui os hosts da MiniMax na allowlist de egress seguro
+
   const contain = (endpoint: string): typeof fetch => {
     const allow = buildAllowlist([endpoint, MINIMAX_ENDPOINT, MINIMAX_CHINA_ENDPOINT, ...extra]);
     return (input, init) => {
@@ -136,62 +115,53 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
 
 ---
 
-## 4. Prompts Prontos para Vibe Coding
+## 4. Atribuição de Modelos MiniMax aos Agentes de IA
 
-Utilize estes prompts prontos ao interagir com seu assistente de Vibe Coding (Claude Code, AGY ou Cursor):
+Cada agente de IA (atendimento via WhatsApp, assistente de RAG ou classificador de leads) possui sua configuração armazenada no banco de dados e associada ao tenant (`organization_id`).
 
-### Prompt A: Configurar Claude Code / AGY para usar MiniMax API Key
-```text
-Preciso configurar a MiniMax AI como meu provedor padrão para o Claude Code / AGY neste ambiente.
-Por favor, verifique se a variável ANTHROPIC_AUTH_TOKEN está nula e configure as variáveis no ~/.claude/settings.json com a ANTHROPIC_BASE_URL="https://api.minimax.io/anthropic" e a minha chave em ANTHROPIC_API_KEY.
-```
-
-### Prompt B: Adicionar MiniMax como Provedor Adicional no Runtime do DeskcommCRM (`providers.ts`)
-```text
-Adicione o provedor 'minimax' ao ProviderRegistry em `lib/agent-engine/edge/llm/providers.ts` no DeskcommCRM.
-Garantias obrigatórias:
-1. Use `@ai-sdk/anthropic` configurado com a baseURL `https://api.minimax.io/anthropic`.
-2. Garanta que o `fetch` passe pela contenção de egress `contain(MINIMAX_ENDPOINT)`.
-3. Adicione `https://api.minimax.io` e `https://api.minimaxi.com` na allowlist de egress seguro.
-4. Mantenha os tipos estritos em TypeScript e garanta que `pnpm typecheck` passe zerado.
-```
-
-### Prompt C: Trocar o Modelo Padrão do Agente para MiniMax M-series
-```text
-Configure o modelo padrão do Agente de Atendimento no DeskcommCRM para utilizar o modelo MiniMax M-series (`minimax-text-01`).
-Certifique-se de passar a chave `MINIMAX_API_KEY` do ambiente, validar a chamada via Zod e garantir isolamento por `organization_id`.
-```
+1. **Mapeamento de Modelos**:
+   - Modelos recomendados: `minimax-text-01` e variantes M-series da MiniMax.
+2. **Configuração do Agente**:
+   - No perfil do agente (`ai_agents` ou tabela de configuração do tenant), especifique o provedor como `minimax` e o modelo como `minimax-text-01`.
+3. **Resolução em Tempo de Execução**:
+   - Quando uma nova conversa ou mensagem do WhatsApp é recebida pelo webhook WAHA, o dispatcher do Agent Engine recupera as credenciais BYOK da org, consulta o `ProviderRegistry` para o provedor `minimax`, e executa `generateText` ou `streamText` de forma isolada e segura.
 
 ---
 
-## 5. Checklist de Validação & Diagnóstico
+## 5. Checklist de Validação no CRM
 
-Após realizar a integração da MiniMax AI, siga o checklist abaixo para confirmar o funcionamento:
+Após realizar a configuração ou atualização do provedor MiniMax no DeskcommCRM, execute o checklist de validação:
 
-### 1. Teste de Chamada via cURL (Endpoint Anthropic-compatible)
-Valide a conectividade da chave de API e do endpoint executando no terminal:
+### 1. Testes Unitários dos Providers
+
+Valide se o registro do provedor e a suíte de testes de unidade estão funcionando corretamente:
 
 ```bash
-curl -X POST https://api.minimax.io/anthropic/v1/messages \
-  -H "x-api-key: $MINIMAX_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "content-type: application/json" \
-  -d '{
-    "model": "minimax-text-01",
-    "max_tokens": 100,
-    "messages": [{"role": "user", "content": "Olá, MiniMax!"}]
-  }'
+pnpm test:unit
 ```
 
-### 2. Verificação de Logs de Egress
-Certifique-se de que os logs de saída não indicam bloqueio de segurança (`EgressBlockedError`).
-Se o tráfego for bloqueado, confirme se o domínio `api.minimax.io` foi corretamente adicionado à allowlist em `lib/agent-engine/edge/llm/providers.ts` ou `lib/agent-engine/edge/egress.ts`.
+### 2. Logs Estruturados (`lib/logger.ts`)
 
-### 3. Validação da Suíte de Testes
-Execute a verificação estática e unitária do repositório para garantir que a integração e as alterações no registry de provedores não quebraram contratos existentes:
+Verifique os logs gerados pelo sistema em tempo de execução usando o logger estruturado da aplicação (`lib/logger.ts`). Certifique-se de que:
+- O tráfego para a MiniMax não está sendo bloqueado pelo controle de egress (ausência de `EgressBlockedError`).
+- Nenhuma chave de API ou dado sensível (PII) é registrado nos logs.
+
+Exemplo de log estruturado esperado no atendimento:
+
+```json
+{
+  "level": "info",
+  "message": "Agente executado com sucesso via MiniMax",
+  "provider": "minimax",
+  "model": "minimax-text-01",
+  "organizationId": "org_123..."
+}
+```
+
+### 3. Governança e Tipagem
+
+Certifique-se de que a verificação estática de tipos e o linter passem sem erros:
 
 ```bash
 pnpm gov:verify
 ```
-
----
