@@ -63,6 +63,7 @@ O arquivo [`graphify-out/GRAPH_REPORT.md`](file:///d:/Projetos/LowziCRM/graphify
 - **Agent Runtime & IA**:
   - `graphify query "runtime do agente dispatcher RAG e ferramentas MCP"`
   - Arquivos-chave: `lib/agent-engine/`, `lib/ai/`
+  - Integration Guide: [`Guia de Integração MiniMax AI`](MINIMAX_INTEGRATION.md) (configuração de provedores, Vibe Coding e `lib/agent-engine/edge/llm/providers.ts`).
 - **Pipeline & CRM Core**:
   - `graphify query "movimentação de leads stages e fractional indexing"`
   - Arquivos-chave: `app/api/v1/crm/`, `lib/crm/`
@@ -116,6 +117,7 @@ graph TB
 ### Camada 4: Workers & Agent Runtime
 - **Localização**: `lib/agent-engine/`, `workers/`, `lib/ai/`
 - **Responsabilidade**: Motor de execução dos agentes de IA, RAG, integração com Vercel AI Gateway, consumo da tabela `event_log` e rotinas agendadas (crons).
+- **Provedores de IA**: Suporte a Anthropic, OpenAI, Google e MiniMax AI (veja o [`Guia de Integração MiniMax AI`](MINIMAX_INTEGRATION.md) para setup de chaves, endpoints e allowlist de egress em `providers.ts`).
 
 ### Camada 5: App Router UI
 - **Localização**: `app/app/`, `app/actions/`, componentes Tailwind + shadcn/ui.
