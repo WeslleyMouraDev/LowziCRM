@@ -20,12 +20,15 @@ export type ProviderRegistry = Record<string, (apiKey: string, modelId: string) 
  * de ter escolhido o provider anthropic. Se uma org precisar de proxy/baseURL custom, é aqui
  * que ele entra (junto do `fetch` contido), nunca espalhado.
  */
-const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com';
+/**
+ * Endpoint do provider Anthropic (MiniMax por padrão pela compatibilidade Anthropic-compatible API, ou via env ANTHROPIC_BASE_URL).
+ */
+const ANTHROPIC_ENDPOINT = process.env.ANTHROPIC_BASE_URL || 'https://api.minimax.io/anthropic';
 const OPENAI_ENDPOINT = 'https://api.openai.com';
 const GOOGLE_ENDPOINT = 'https://generativelanguage.googleapis.com';
 
 /**
- * Providers reais do lançamento. Sonnet (Anthropic) é o default RECOMENDADO —
+ * Providers reais do lançamento. Sonnet (Anthropic/MiniMax) é o default RECOMENDADO —
  * recomendação vive em .env.example/docs; o id do modelo é sempre config da org.
  *
  * O `fetch` INTERNO do provider (generateText) também roteia pela allowlist
@@ -46,7 +49,7 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
   };
   return {
     anthropic: (apiKey, modelId) =>
-      createAnthropic({ apiKey, fetch: contain(ANTHROPIC_ENDPOINT) })(modelId),
+      createAnthropic({ apiKey, baseURL: ANTHROPIC_ENDPOINT, fetch: contain(ANTHROPIC_ENDPOINT) })(modelId),
     openai: (apiKey, modelId) =>
       createOpenAI({ apiKey, fetch: contain(OPENAI_ENDPOINT) })(modelId),
     google: (apiKey, modelId) =>
