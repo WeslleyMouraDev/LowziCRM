@@ -1,51 +1,66 @@
-# Guia Completo de Deploy — DeskcommCRM
+# Guia Completo de Deploy Universal — DeskcommCRM
 
-> Passo a passo definitivo para instalar e colocar o **DeskcommCRM** em produção na sua própria VPS (self-hosted), desde o clone do repositório no GitHub até a aplicação estar no ar com HTTPS, agentes de IA e WhatsApp conectados.
+> Passo a passo para instalar e colocar o **DeskcommCRM** em produção em **qualquer VPS Linux** (DigitalOcean, Hetzner, Hostinger, AWS, GCP, Contabo, Linode, Vultr ou servidor próprio), do `git clone` até a aplicação rodando com HTTPS, Agentes de IA e WhatsApp.
 
 ---
 
-## 📋 1. Pré-Requisitos do Ambiente
+## 📋 1. Pré-Requisitos do Servidor
 
-Antes de iniciar, garanta que você possui os seguintes itens:
+A instalação é **agnóstica de provedor** e roda em qualquer distribuição Linux baseada em Debian/Ubuntu.
 
-| Requisito | Descrição / Onde Obter |
+| Requisito | Especificação Recomendada |
 |---|---|
-| **Servidor VPS** | Ubuntu 22.04 LTS ou 24.04 LTS (mínimo de 4 GB de RAM e 2 vCPU recomendados). |
-| **Domínio registrado** | Apontamento de **Registro A** do seu domínio ou subdomínio (ex: `crm.suaempresa.com.br`) direcionado para o IP público da sua VPS. |
-| **Banco de Dados Supabase** | Projeto criado no [Supabase Cloud](https://supabase.com) (URL do projeto, Anon Key, Service Role Key e Connection String do Postgres `SUPABASE_DB_URL`). |
-| **Chave de IA (MiniMax ou Anthropic)** | Chave de API da [MiniMax AI](https://platform.minimax.io) ou Anthropic. |
-| **Firewall / Portas** | Portas **80** (HTTP), **443** (HTTPS) e **22** (SSH) abertas no firewall do servidor (`ufw allow 80,443,22/tcp`). |
+| **Servidor VPS** | Ubuntu 22.04 LTS ou 24.04 LTS (mínimo de **4 GB de RAM** e 2 vCPU). |
+| **Domínio registrado** | Apontamento de **Registro A** do seu domínio/subdomínio (ex: `crm.suaempresa.com.br`) para o IP público da VPS. |
+| **Banco Supabase** | Projeto no [Supabase Cloud](https://supabase.com) (`URL`, `Anon Key`, `Service Role Key` e `SUPABASE_DB_URL`). |
+| **Chave de IA** | Chave da **MiniMax AI** ou Anthropic. |
+| **Firewall** | Portas **80** (HTTP), **443** (HTTPS) e **22** (SSH) abertas (`ufw allow 80,443,22/tcp`). |
 
 ---
 
-## 🚀 2. Passo a Passo do Deploy
+## 🚀 2. Passo a Passo do Deploy Genérico
 
-### Passo 1: Conectar na VPS e Clonar o Repositório
+### Passo 1: Conectar na VPS e Instalar o Docker (se necessário)
 
-Acesse seu servidor VPS via SSH e clone o repositório oficial do GitHub:
+Acesse seu servidor por SSH. Se o Docker ainda não estiver instalado, instale com o script oficial:
 
 ```bash
-# Conectar na VPS por SSH
+# 1. Conectar na VPS via SSH
 ssh root@seu-ip-vps
 
+# 2. Instalar o Docker + Docker Compose v2 (caso a VPS seja virgem)
+curl -fsSL https://get.docker.com | sh
+
+# 3. Habilitar o Docker no boot
+systemctl enable --now docker
+```
+
+---
+
+### Passo 2: Clonar o Repositório no Servidor
+
+Clone o repositório do projeto para a pasta de sua preferência (ex: `/var/www/crm`):
+
+```bash
 # Clonar o repositório
 git clone https://github.com/WeslleyMouraDev/LowziCRM.git /var/www/crm
 
-# Entrar na pasta do projeto
+# Entrar no diretório
 cd /var/www/crm
 ```
 
 ---
 
-### Passo 2: Configurar as Variáveis de Ambiente (`.env`)
+### Passo 3: Configurar as Variáveis de Ambiente (`.env`)
 
-Copie o modelo de arquivo de ambiente `.env.example` para `.env`:
+Crie o arquivo `.env` a partir do modelo `.env.example`:
 
 ```bash
 cp .env.example .env
+nano .env
 ```
 
-Edite o arquivo `.env` com um editor de texto (ex: `nano .env` ou `vim .env`) e preencha as credenciais essenciais:
+Preencha as variáveis de produção no `.env`:
 
 ```env
 # --- DOMÍNIO E REDE ---
@@ -65,96 +80,85 @@ ANTHROPIC_API_KEY=sua_chave_minimax_aqui
 ANTHROPIC_BASE_URL=https://api.minimax.io/anthropic
 
 # --- SEGREDOS DE SEGURANÇA E CRONS ---
-# Gere strings seguras com: openssl rand -hex 32
+# Gere com: openssl rand -hex 32
 INTERNAL_SECRET=gerar_hash_hex_com_32_caracteres
 SRH_TOKEN=gerar_hash_hex_com_32_caracteres
 WAHA_HMAC_SECRET=gerar_hash_hex_com_32_caracteres
 
 # --- WAHA (WHATSAPP) ---
-# WAHA_API_KEY_SHA512 deve conter o SHA512 em HEX da senha plana do WAHA
+# WAHA_API_KEY_SHA512 deve conter o SHA512 em HEX da senha do WAHA
 # Exemplo de geração: echo -n "sua-senha-waha" | sha512sum | awk '{print $1}'
 WAHA_API_KEY_SHA512=hash_sha512_da_sua_senha_waha
 ```
 
 ---
 
-### Passo 3: Executar a Instalação
+### Passo 4: Subir a Aplicação
 
-Você pode realizar a instalação de duas formas:
+Escolha a forma que melhor se adapta ao seu ambiente:
 
-#### Opção A: Instalação Automática Guiada (Recomendada)
-O repositório possui um instalador idempotente que verifica o Docker, aplica o schema SQL no Supabase, configura os crons e inicia os contêineres:
+#### Opção 1: Script de Instalação Automática
+O script de setup aplica as migrations no Supabase, configura os crons e sobe a stack:
 
 ```bash
 bash hostgator-setup-kit/install.sh
 ```
 
-> **Se o seu VPS não tiver Docker instalado**, o `install.sh` detecta automaticamente e pergunta se deseja instalar via script oficial do Docker.
+#### Opção 2: Docker Compose Direto
 
-#### Opção B: Instalação Manual com Docker Compose v2
+- **Cenário A: VPS Limpa (Caddy embutido cuida do HTTPS automático nas portas 80/443)**:
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env up -d
+  ```
 
-Caso prefira subir a stack manualmente via Docker Compose:
-
-1. **VPS Padrão com Caddy (Portas 80/443 livres)**:
-   ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env up -d
-   ```
-
-2. **VPS com Proxy Reverso Próprio (Hostinger, Coolify, Dokploy, Traefik)**:
-   ```bash
-   docker compose -f docker-compose.prod.yml -f docker-compose.traefik.yml --env-file .env up -d
-   ```
+- **Cenário B: VPS com Proxy Reverso Existente (Hostinger, Coolify, Dokploy, Traefik, Nginx)**:
+  ```bash
+  docker compose -f docker-compose.prod.yml -f docker-compose.traefik.yml --env-file .env up -d
+  ```
 
 ---
 
-## 🔍 3. Validação Pós-Deploy & Diagnóstico
+## 🔍 3. Diagnóstico Pós-Deploy
 
-Após finalizar o deploy, execute as seguintes verificações para garantir que todos os serviços estão operacionais:
+Após o deploy, confirme a saúde dos serviços:
 
-### 1. Diagnóstico Geral de Saúde
-Execute o script de diagnóstico do kit:
+### 1. Diagnóstico de Saúde dos Contêineres
 ```bash
 bash hostgator-setup-kit/healthcheck.sh
 ```
 
 ### 2. Teste do Probe HTTP
-Verifique se a aplicação está respondendo no seu domínio:
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" https://crm.suaempresa.com.br/
 ```
 *(Resposta esperada: `307` ou `200`)*
 
-### 3. Teste do Fila de Automação (`event-log-drain`)
-Dispare um teste manual no cron interno:
+### 3. Teste da Fila de Automações (`event-log-drain`)
 ```bash
 source .env && curl -s -H "Authorization: Bearer ${INTERNAL_SECRET}" "${NEXT_PUBLIC_APP_URL}/api/v1/cron/event-log-drain"
 ```
-*(Resposta esperada: `{"data":{"scanned":...}}`)*
 
 ---
 
-## 📱 4. Onboarding Inicial e Conexão do WhatsApp
+## 📱 4. Acesso ao CRM e Conexão do WhatsApp
 
-1. Acesse no navegador o seu domínio: **`https://crm.suaempresa.com.br`**.
-2. Faça login com o usuário administrador configurado durante o `install.sh` (ou realize o cadastro da sua primeira organização no Onboarding).
-3. Vá para a seção **Inbox / Atendimento** ou **WhatsApp Connections**.
-4. Escaneie o **QR Code** exibido na tela usando o seu aplicativo do WhatsApp no celular para parear a sessão.
-5. Pronto! Seus Agentes de IA e equipe já podem atender e gerenciar leads no WhatsApp.
+1. Acesse o domínio no navegador: **`https://crm.suaempresa.com.br`**.
+2. Faça login com o usuário criado.
+3. Navegue até a seção de **WhatsApp Connections** / **Inbox**.
+4. Escaneie o **QR Code** no aplicativo do WhatsApp no celular para conectar o número.
+5. A aplicação está pronta para operar com Agentes de IA ativos.
 
 ---
 
-## 🛠️ 5. Comandos Úteis de Manutenção
+## 🛠️ 5. Manutenção e Comandos de Rotina
 
-O DeskcommCRM traz scripts utilitários em `hostgator-setup-kit/` para facilitar o gerenciamento do seu servidor:
-
-| Comando | Descrição |
+| Ação | Comando |
 |---|---|
-| `bash hostgator-setup-kit/update.sh` | Atualiza o sistema para a versão mais recente com backup automático preventivo. |
-| `bash hostgator-setup-kit/backup.sh` | Gera backup completo do banco de dados e das sessões do WhatsApp. |
-| `bash hostgator-setup-kit/restore.sh` | Restaura um backup previamente criado. |
-| `bash hostgator-setup-kit/healthcheck.sh` | Roda diagnóstico dos contêineres e rotas de saúde. |
-| `bash hostgator-setup-kit/reset-password.sh` | Redefine a senha de acesso de qualquer usuário. |
-| `bash hostgator-setup-kit/reset-mfa.sh` | Remove a autenticação de 2 fatores (MFA) de um usuário travado. |
+| **Atualizar o CRM** | `bash hostgator-setup-kit/update.sh` |
+| **Backup Completo** | `bash hostgator-setup-kit/backup.sh` |
+| **Restaurar Backup** | `bash hostgator-setup-kit/restore.sh` |
+| **Redefinir Senha** | `bash hostgator-setup-kit/reset-password.sh` |
+| **Remover MFA de Usuário** | `bash hostgator-setup-kit/reset-mfa.sh` |
 
 ---
 
