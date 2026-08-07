@@ -29,6 +29,7 @@ de menor precedência e registre.
 | [`README.md`](../README.md) | O que é, quickstart de 5 min, stack, roadmap. Também em [EN](../README.en.md) / [ES](../README.es.md) |
 | [`VISION.md`](../VISION.md) | Posicionamento, por que self-host, para quem |
 | [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Arquitetura em 1 página |
+| [`docs/DEPLOY.md`](DEPLOY.md) | **Guia completo de deploy.** Passo a passo do `git clone` até a aplicação no ar com HTTPS, agentes de IA e WhatsApp |
 | [`docs/VIBE_CODING.md`](VIBE_CODING.md) | **Guia supremo de Vibe Coding com IA & Graphify.** Navegação acelerada, 5 camadas, templates e esteira |
 | [`docs/WHITE_LABEL_VIBE_CODING.md`](WHITE_LABEL_VIBE_CODING.md) | **Guia de Rebranding e Identidade Visual (White-Label) com Vibe Coding.** Níveis 1 e 2, paleta Sage, tokens CSS e prompts |
 | [`docs/MINIMAX_INTEGRATION.md`](MINIMAX_INTEGRATION.md) | **Guia de Integração MiniMax AI no DeskcommCRM.** Configuração de credenciais BYOK, Agent Engine e Egress Allowlist. |
