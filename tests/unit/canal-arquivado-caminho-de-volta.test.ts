@@ -519,6 +519,22 @@ describe("POST /api/v1/onboarding/whatsapp/session — retomar o pareamento ress
     expect(db.linhas[0]?.phone_number).toBe("+5531999998888");
   });
 
+  it("self-host com WAHA Core usa a única sessão permitida: default", async () => {
+    process.env.WAHA_CORE_SINGLE_SESSION = "true";
+    try {
+      authOk();
+      const db = makeDb({ sessions: [] });
+      const waha = transporteOk();
+      const { POST } = await import("@/app/api/v1/onboarding/whatsapp/session/route");
+
+      expect((await POST(req())).status).toBe(200);
+      expect(waha.startSession).toHaveBeenCalledWith("default");
+      expect(db.linhas[0]?.waha_session_name).toBe("default");
+    } finally {
+      delete process.env.WAHA_CORE_SINGLE_SESSION;
+    }
+  });
+
   it("org sem linha nenhuma: cria a sessão do onboarding", async () => {
     authOk();
     const db = makeDb({ sessions: [] });

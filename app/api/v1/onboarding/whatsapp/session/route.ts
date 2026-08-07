@@ -30,6 +30,10 @@ interface WahaSessionResponse {
 }
 
 function defaultSessionName(orgId: string): string {
+  // WAHA Core suporta exatamente uma sessão, obrigatoriamente chamada `default`.
+  // O self-host single-tenant explicita esse modo por env; WAHA Plus mantém o
+  // nome isolado por organização e continua apto a múltiplas contas.
+  if (process.env.WAHA_CORE_SINGLE_SESSION === "true") return "default";
   return `org_${orgId.slice(0, 8)}`;
 }
 

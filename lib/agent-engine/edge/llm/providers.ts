@@ -23,7 +23,21 @@ export type ProviderRegistry = Record<string, (apiKey: string, modelId: string) 
 /**
  * Endpoint do provider Anthropic (MiniMax por padrão pela compatibilidade Anthropic-compatible API, ou via env ANTHROPIC_BASE_URL).
  */
-const ANTHROPIC_ENDPOINT = process.env.ANTHROPIC_BASE_URL || 'https://api.minimax.io/anthropic';
+const ANTHROPIC_CONFIGURED_ENDPOINT =
+  process.env.ANTHROPIC_BASE_URL || 'https://api.minimax.io/anthropic';
+
+/**
+ * `@ai-sdk/anthropic` concatena `/messages` diretamente ao `baseURL`, enquanto
+ * a URL publicada pela MiniMax é a raiz Anthropic-compatible e o endpoint real
+ * vive em `/v1/messages`. Aceitamos as duas grafias para não exigir uma URL
+ * diferente da documentação no `.env`.
+ */
+export function anthropicSdkBaseUrl(endpoint: string): string {
+  const clean = endpoint.replace(/\/+$/, '');
+  return clean.endsWith('/v1') ? clean : `${clean}/v1`;
+}
+
+const ANTHROPIC_ENDPOINT = anthropicSdkBaseUrl(ANTHROPIC_CONFIGURED_ENDPOINT);
 const OPENAI_ENDPOINT = 'https://api.openai.com';
 const GOOGLE_ENDPOINT = 'https://generativelanguage.googleapis.com';
 

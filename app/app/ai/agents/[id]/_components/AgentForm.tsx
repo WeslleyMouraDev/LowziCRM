@@ -135,7 +135,10 @@ function buildState(args: {
     description: agent?.description ?? "",
     priority: agent?.priority ?? 0,
     provider: (version?.provider as Provider) ?? "anthropic",
-    model: version?.model ?? "",
+    // Esta distribuição usa o endpoint Anthropic-compatible da MiniMax.
+    // O cadastro novo já nasce com o modelo aceito por esse endpoint; deixar
+    // vazio obrigava o usuário a adivinhar entre ids Claude incompatíveis.
+    model: version?.model ?? "MiniMax-M3[1m]",
     credential_id: version?.credential_id ?? "",
     channel_session_id: version?.channel_session_id ?? "",
     system_prompt:

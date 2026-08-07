@@ -7,7 +7,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --network-concurrency=4 --fetch-retries=5 --fetch-timeout=120000
 
 # ---- build: gera .next/standalone ----
 FROM node:22-alpine AS build

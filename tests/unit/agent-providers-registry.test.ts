@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultRegistry } from "@/lib/agent-engine/edge/llm/providers";
+import { anthropicSdkBaseUrl, createDefaultRegistry } from "@/lib/agent-engine/edge/llm/providers";
 
 describe("createDefaultRegistry", () => {
+  it("adapta a URL documental da MiniMax ao baseURL esperado pelo AI SDK", () => {
+    expect(anthropicSdkBaseUrl("https://api.minimax.io/anthropic")).toBe(
+      "https://api.minimax.io/anthropic/v1",
+    );
+    expect(anthropicSdkBaseUrl("https://api.minimax.io/anthropic/v1/")).toBe(
+      "https://api.minimax.io/anthropic/v1",
+    );
+  });
+
   it("registra os três providers do lançamento multimodal", () => {
     const reg = createDefaultRegistry();
     expect(Object.keys(reg).sort()).toEqual(["anthropic", "google", "openai"]);

@@ -16,10 +16,10 @@ services:
     # Os NEXT_PUBLIC_* reais vêm em RUNTIME (env_file abaixo) — o browser lê via
     # <PublicEnvScript/> e o servidor via lib/env.ts. Não precisa buildar no VPS.
     # Build local (avançado): docker compose -f docker-compose.prod.yml -f docker-compose.build.yml build
-    image: ${APP_IMAGE:-ghcr.io/melgarafael/deskcommcrm:latest}
+    image: ${APP_IMAGE:-ghcr.io/weslleymouradev/lowzicrm:latest}
     pull_policy: ${APP_PULL_POLICY:-always}
     restart: unless-stopped
-    env_file: .env
+    env_file: ${LOWZICRM_ENV_FILE:-.env}
     depends_on:
       srh:
         condition: service_started
@@ -40,11 +40,10 @@ services:
 
   # Worker 24/7 do agent-engine (fusão Vendaval) — cérebro do agente SDR.
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.worker
+    image: ${WORKER_IMAGE:-ghcr.io/weslleymouradev/lowzicrm-worker:latest}
+    pull_policy: ${APP_PULL_POLICY:-always}
     restart: unless-stopped
-    env_file: .env
+    env_file: ${LOWZICRM_ENV_FILE:-.env}
     environment:
       # dentro da rede do compose, o WAHA é o serviço 'waha' na porta interna 3000
       WAHA_API_BASE_URL: http://waha:3000
@@ -72,6 +71,7 @@ services:
       # fazia cair no default WEBJS, engine com browser que trava/corrompe a sessão
       # quando o WhatsApp Web atualiza; NOWEB é websocket direto, estável e leve).
       WHATSAPP_DEFAULT_ENGINE: ${WHATSAPP_DEFAULT_ENGINE:-NOWEB}
+      WHATSAPP_RUST_BRIDGE_FORCE_COMPAT: ${WHATSAPP_RUST_BRIDGE_FORCE_COMPAT:-0}
       WAHA_DASHBOARD_ENABLED: "false"    # nunca expor o dashboard num template público
     volumes:
       - waha-data:/app/.sessions          # sessões pareadas (QR) — perder = re-parear

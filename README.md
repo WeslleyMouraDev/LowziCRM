@@ -20,41 +20,25 @@
 
 ---
 
-> ### ☁️ Rode este CRM em produção com 1 comando
+> ### ☁️ Instale o LowziCRM com um comando
 >
-> O DeskcommCRM foi desenvolvido em **parceria com a HostGator**: o [`hostgator-setup-kit/`](hostgator-setup-kit/)
-> instala o CRM completo (app + WAHA + banco) numa VPS com um único comando, e o
-> [runbook de produção](docs/runbooks/waha-hostgator.md) já assume esse ambiente.
->
-> **[👉 Assinar a VPS HostGator com desconto da parceria](https://www.hostgator.com.br/52708-141-3-52.html)** —
-> datacenter em São Paulo, ideal pro WhatsApp rodando 24/7. *(link de parceiro — assinar por ele apoia o projeto e sai mais barato)*
->
-> **Ainda não tem servidor?** Rode isto **no seu computador** (macOS, Linux ou WSL). Ele diz
-> qual plano contratar — com os números do runbook, não um "depende" — e te devolve o
-> comando certo pro seu caso:
+> O auto-instalador funciona em **qualquer VPS Linux** e em **Linux/macOS local**. Ele detecta o ambiente, gera os segredos, configura Supabase + MiniMax, baixa imagens prontas, aplica o banco, cria o primeiro administrador e valida o health check.
 >
 > ```bash
-> curl -fsSL https://raw.githubusercontent.com/melgarafael/DeskcommCRM/main/hostgator-setup-kit/comecar.sh | bash
+> curl -fsSL https://raw.githubusercontent.com/WeslleyMouraDev/LowziCRM/main/install.sh -o /tmp/lowzicrm-install.sh && bash /tmp/lowzicrm-install.sh
 > ```
 >
-> *(prefere ler antes de executar? clone o repo e rode `bash hostgator-setup-kit/comecar.sh` —
-> ele não instala nada sem você confirmar.)*
->
-> Já tem a VPS? Entre nela por SSH e rode:
+> Ou, se preferir revisar antes:
 >
 > ```bash
-> git clone https://github.com/melgarafael/DeskcommCRM.git
-> cd DeskcommCRM
-> bash hostgator-setup-kit/install.sh
+> git clone https://github.com/WeslleyMouraDev/LowziCRM.git
+> cd LowziCRM
+> ./install.sh
 > ```
 >
-> O instalador pergunta só o que é seu (domínio, chaves do Supabase, chave de IA, senha do
-> admin), valida cada resposta antes de seguir, gera todos os outros segredos sozinho, aplica
-> o schema do banco e sobe a stack inteira com HTTPS. Detalhes em
-> [`hostgator-setup-kit/README.md`](hostgator-setup-kit/README.md).
+> Depois da instalação, use `./lowzicrm status`, `logs`, `doctor` e `update`. Veja todos os requisitos e modos em [`docs/AUTO_INSTALL.md`](docs/AUTO_INSTALL.md).
 >
-> ⚠️ O **Quickstart** abaixo é o caminho de *desenvolvimento* (rodar o app na sua máquina).
-> Se você comprou a VPS pra rodar o CRM, use o comando acima, não o Quickstart.
+> ⚠️ O **Quickstart** abaixo é o caminho de desenvolvimento com Node/pnpm. Para instalar a stack completa, use o auto-instalador acima.
 
 ## ✨ O que é
 

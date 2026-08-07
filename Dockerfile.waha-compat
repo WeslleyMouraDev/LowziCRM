@@ -1,0 +1,12 @@
+FROM mirror.gcr.io/devlikeapro/waha:chrome-2026.6.2
+
+USER root
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential python3 pkg-config libvips-dev \
+ && mkdir -p /tmp/sharp-build \
+ && cd /tmp/sharp-build \
+ && npm_config_build_from_source=true npm install --foreground-scripts sharp@0.31.3 \
+ && rm -rf /app/node_modules/sharp \
+ && cp -a /tmp/sharp-build/node_modules/sharp /app/node_modules/sharp \
+ && rm -rf /tmp/sharp-build /var/lib/apt/lists/* /root/.npm

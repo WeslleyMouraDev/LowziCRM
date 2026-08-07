@@ -71,9 +71,15 @@ export function createDefaultRegistry(opts?: { allowedHosts?: string[] }): Provi
 
 ---
 
-## 4. Modelos da MiniMax Utilizados pelos Agentes
+## 4. Modelo da MiniMax utilizado pelos agentes
 
-Os Agentes de IA do CRM (atendimento por WhatsApp, RAG por tenant, classificação de leads) continuam utilizando a estrutura do `Agent Engine`, bastando definir o modelo desejado (ex: `minimax-text-01` ou modelos M-series equivalentes).
+No formulário de criação, mantenha o provedor/empresa como **Anthropic** porque o SDK e o protocolo continuam sendo Anthropic-compatible. O modelo disponível e padrão deve ser exatamente:
+
+```text
+MiniMax-M3[1m]
+```
+
+Esse é o identificador recomendado pela documentação oficial da MiniMax para Claude Code/Anthropic-compatible API e ativa a janela de contexto de 1 milhão de tokens. Não ofereça ids `claude-*` quando `ANTHROPIC_BASE_URL` aponta para a MiniMax: esses ids pertencem ao endpoint original da Anthropic.
 
 ---
 
