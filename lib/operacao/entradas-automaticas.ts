@@ -48,6 +48,8 @@ export interface FonteVisivel {
   redirect_to: string | null;
   field_map: Record<string, unknown>;
   last_received_at: string | null;
+  daily_new_contact_limit: number;
+  quota_timezone: string;
   has_secret: boolean;
   created_at: string;
   updated_at: string;
@@ -64,7 +66,7 @@ export interface FonteVisivel {
  */
 const COLUNAS =
   "id, organization_id, name, is_active, kind, path_token, default_pipeline_id, default_stage_id, " +
-  "redirect_to, field_map, last_received_at, secret_encrypted, created_at, updated_at, " +
+  "redirect_to, field_map, last_received_at, daily_new_contact_limit, quota_timezone, secret_encrypted, created_at, updated_at, " +
   "last_change_actor_kind, last_change_at";
 
 function semSegredo(linha: Record<string, unknown>): FonteVisivel {
@@ -179,6 +181,8 @@ export interface NovaEntradaAutomatica {
   default_stage_id: string;
   redirect_to?: string | null;
   field_map?: Record<string, string[]>;
+  daily_new_contact_limit?: number;
+  quota_timezone?: string;
   /** Já CIFRADO pelo chamador. A operação nunca vê plaintext de segredo. */
   secret_encrypted?: string | null;
 }
@@ -210,6 +214,8 @@ export async function criarEntradaAutomatica(
       default_stage_id: input.default_stage_id,
       field_map: input.field_map ?? {},
       redirect_to: input.redirect_to ?? null,
+      daily_new_contact_limit: input.daily_new_contact_limit ?? 30,
+      quota_timezone: input.quota_timezone ?? "UTC",
       ...autoriaDaMudanca(deps.actor),
     })
     .select(COLUNAS)

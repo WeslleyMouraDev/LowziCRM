@@ -66,7 +66,9 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
   const admin = createAdminClient();
   const { data: source, error: srcErr } = await admin
     .from("webhook_sources")
-    .select("id, organization_id, secret_encrypted, default_pipeline_id, default_stage_id, field_map, redirect_to, is_active")
+    .select(
+      "id, organization_id, secret_encrypted, default_pipeline_id, default_stage_id, field_map, redirect_to, is_active, daily_new_contact_limit, quota_timezone",
+    )
     .eq("path_token", token)
     .maybeSingle();
   if (srcErr) return fail("internal_error", srcErr.message, 500, { requestId });
@@ -181,55 +183,66 @@ export async function POST(req: NextRequest, ctx: RouteCtx): Promise<NextRespons
     return fail("invalid_request", "Nenhum campo mapeável (nome/telefone/email).", 400, { requestId });
   }
 
-  // Contato: upsert por telefone (se houver) — reusa a coluna E.164 canônica.
-  // is_merged_into null: contato mesclado não deve ser reaproveitado (o índice
-  // único uniq_contacts_org_phone só cobre a linha ativa por telefone).
+  // Contato + quota: uma RPC transacional resolve contato existente sem custo,
+  // reserva a vaga diária sob advisory lock e cria o contato na MESMA transação.
+  // O teto do Actor controla custo; este gate no banco controla a operação.
   let contactId: string | undefined;
   if (mapped.phone) {
-    const selectActiveByPhone = () =>
-      admin
-        .from("contacts")
-        .select("id")
-        .eq("organization_id", source.organization_id)
-        .eq("phone_number", mapped.phone)
-        .is("is_merged_into", null)
-        .maybeSingle();
+    const { data: reservationRows, error: reservationErr } = await admin.rpc(
+      "reserve_webhook_new_contact" as never,
+      {
+        p_organization_id: source.organization_id,
+        p_webhook_source_id: source.id,
+        p_phone: mapped.phone,
+        p_name: mapped.name ?? mapped.phone,
+        p_email: mapped.email,
+        p_source_metadata: mapped.source_metadata,
+        p_daily_limit: source.daily_new_contact_limit,
+        p_timezone: source.quota_timezone,
+      } as never,
+    );
 
-    const { data: existing } = await selectActiveByPhone();
-    if (existing) {
-      contactId = existing.id as string;
-    } else {
-      const { data: created, error: insertErr } = await admin
-        .from("contacts")
-        .insert({
-          organization_id: source.organization_id,
-          name: mapped.name ?? mapped.phone,
-          phone_number: mapped.phone,
-          email: mapped.email,
-          source: "webhook",
-          source_metadata: { webhook_source_id: source.id, ...mapped.source_metadata },
-        })
-        .select("id")
-        .maybeSingle();
-      if (insertErr) {
-        if (insertErr.code === "23505") {
-          // Corrida: outro POST concorrente com o mesmo telefone novo já
-          // criou o contato entre o select e o insert. Re-seleciona o
-          // vencedor em vez de deixar o lead órfão.
-          const { data: winner } = await selectActiveByPhone();
-          contactId = (winner?.id as string | undefined) ?? undefined;
-        } else {
-          logger.error("[webhooks.inbound] contact insert failed", {
-            webhookSourceId: source.id,
-            organizationId: source.organization_id,
-            errorCode: insertErr.code,
-            errorMessage: insertErr.message,
-          });
-        }
-      } else {
-        contactId = (created?.id as string | undefined) ?? undefined;
-      }
+    if (reservationErr) {
+      logger.error("[webhooks.inbound] contact quota reservation failed", {
+        webhookSourceId: source.id,
+        organizationId: source.organization_id,
+        errorCode: reservationErr.code,
+        errorMessage: reservationErr.message,
+      });
+      return fail("internal_error", "contact_quota_reservation_failed", 500, { requestId });
     }
+
+    const reservation = Array.isArray(reservationRows) ? reservationRows[0] : reservationRows;
+    if (!reservation) {
+      return fail("internal_error", "contact_quota_empty_result", 500, { requestId });
+    }
+    const quota = reservation as unknown as {
+      contact_id: string | null;
+      created: boolean;
+      quota_exceeded: boolean;
+      used_count: number;
+      quota_date: string;
+    };
+    if (quota.quota_exceeded) {
+      await audit({
+        action: "webhook.daily_new_contact_quota_exceeded",
+        organizationId: source.organization_id,
+        resourceType: "webhook_source",
+        resourceId: source.id,
+        requestId,
+        metadata: {
+          quota_date: quota.quota_date,
+          used_count: quota.used_count,
+          limit: source.daily_new_contact_limit,
+          timezone: source.quota_timezone,
+        },
+      });
+      return fail("rate_limited", "daily_new_contact_quota_exceeded", 429, {
+        requestId,
+        headers: { "Retry-After": "3600" },
+      });
+    }
+    contactId = quota.contact_id ?? undefined;
   }
 
   const leadInput: CreateLeadInput & {

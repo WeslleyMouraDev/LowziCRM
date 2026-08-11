@@ -216,6 +216,35 @@ function fakeAdminClient(): SupabaseClient {
             return { data: null, error: { message: (err as Error).message } };
           }
         }
+        if (name === "reserve_webhook_new_contact") {
+          const p = params as {
+            p_organization_id: string;
+            p_webhook_source_id: string;
+            p_phone: string;
+            p_name: string;
+            p_email: string | null;
+            p_source_metadata: unknown;
+            p_daily_limit: number;
+            p_timezone: string;
+          };
+          try {
+            const out = sql(`
+              select coalesce(json_agg(r), '[]') from public.reserve_webhook_new_contact(
+                ${sqlString(p.p_organization_id)}::uuid,
+                ${sqlString(p.p_webhook_source_id)}::uuid,
+                ${sqlString(p.p_phone)},
+                ${sqlString(p.p_name)},
+                ${p.p_email ? sqlString(p.p_email) : "null"},
+                ${sqlString(JSON.stringify(p.p_source_metadata))}::jsonb,
+                ${p.p_daily_limit},
+                ${sqlString(p.p_timezone)}
+              ) r;
+            `);
+            return { data: JSON.parse(out || "[]"), error: null };
+          } catch (err) {
+            return { data: null, error: { message: (err as Error).message } };
+          }
+        }
         if (name !== "emit_event") {
           throw new Error(`fakeAdminClient: unsupported rpc ${name}`);
         }
@@ -270,6 +299,7 @@ const WHIN_SOURCE_JSON = "dddddddd-5555-4000-8000-000000000001";
 const WHIN_SOURCE_FORM = "dddddddd-5555-4000-8000-000000000002";
 const WHIN_SOURCE_INACTIVE = "dddddddd-5555-4000-8000-000000000003";
 const WHIN_SOURCE_SECRET = "dddddddd-5555-4000-8000-000000000004";
+const WHIN_SOURCE_QUOTA = "dddddddd-5555-4000-8000-000000000005";
 const SECRET = "test-webhook-secret-abc123";
 const REDIRECT_TO = "https://example.com/obrigado";
 
@@ -277,6 +307,7 @@ const TOKEN_JSON = "wh-in-json-token-1234";
 const TOKEN_FORM = "wh-in-form-token-1234";
 const TOKEN_INACTIVE = "wh-in-inactive-token-1234";
 const TOKEN_SECRET = "wh-in-secret-token-1234";
+const TOKEN_QUOTA = "wh-in-quota-token-1234";
 const TOKEN_UNKNOWN = "wh-in-does-not-exist-1234";
 
 beforeAll(() => {
@@ -305,6 +336,10 @@ beforeAll(() => {
     insert into public.webhook_sources
       (id, organization_id, name, path_token, default_pipeline_id, default_stage_id, secret_encrypted)
       values ('${WHIN_SOURCE_SECRET}', '${GOV_ORG}', 'Secret source', '${TOKEN_SECRET}', '${GOV_PIPELINE}', '${GOV_STAGE}', public.fn_encrypt_oauth('${SECRET}'))
+      on conflict do nothing;
+    insert into public.webhook_sources
+      (id, organization_id, name, path_token, default_pipeline_id, default_stage_id, daily_new_contact_limit, quota_timezone)
+      values ('${WHIN_SOURCE_QUOTA}', '${GOV_ORG}', 'Quota source', '${TOKEN_QUOTA}', '${GOV_PIPELINE}', '${GOV_STAGE}', 1, 'America/Recife')
       on conflict do nothing;
   `);
 });
@@ -460,6 +495,30 @@ describe("POST /api/v1/webhooks/in/[token] (Task 6)", () => {
     // síncrono. Este caso cobre a mesma lógica de re-seleção
     // (selectActiveByPhone) que o branch do catch usa; o branch do catch em
     // si (insertErr.code === "23505") fica sem cobertura direta de teste.
+  });
+
+  it("caso 8 — contato acima da quota recebe 429 explícito e não é criado", async () => {
+    const first = await POST(
+      jsonReq(TOKEN_QUOTA, { nome: "Quota um", telefone: "11970001001", external_id: "quota-1" }),
+      reqCtx(TOKEN_QUOTA),
+    );
+    const denied = await POST(
+      jsonReq(TOKEN_QUOTA, { nome: "Quota dois", telefone: "11970001002", external_id: "quota-2" }),
+      reqCtx(TOKEN_QUOTA),
+    );
+
+    expect(first.status).toBe(200);
+    expect(denied.status).toBe(429);
+    const deniedBody = (await denied.json()) as { error: { code: string; message: string } };
+    expect(deniedBody.error.code).toBe("rate_limited");
+    expect(deniedBody.error.message).toBe("daily_new_contact_quota_exceeded");
+    expect(
+      Number(
+        sql(
+          `select count(*) from public.contacts where organization_id='${GOV_ORG}' and phone_number='+5511970001002';`,
+        ),
+      ),
+    ).toBe(0);
   });
 
   // ponytail: rate limit cai no fallback in-memory sem Upstash (sem env

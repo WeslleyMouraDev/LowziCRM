@@ -155,6 +155,7 @@ export type AuditAction =
   | "webhook.source_deleted"
   | "webhook.lead_received"
   | "webhook.inbound_invalid_signature"
+  | "webhook.daily_new_contact_quota_exceeded"
   | "automation.rule_created"
   | "automation.rule_updated"
   | "automation.rule_deleted"

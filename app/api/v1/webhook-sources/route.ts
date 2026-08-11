@@ -101,6 +101,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       default_stage_id: parsed.data.default_stage_id,
       redirect_to: parsed.data.redirect_to ?? null,
       field_map: parsed.data.field_map,
+      daily_new_contact_limit: parsed.data.daily_new_contact_limit,
+      quota_timezone: parsed.data.quota_timezone,
       secret_encrypted: secretEncrypted,
     });
     return ok(criada, { requestId, status: 201 });

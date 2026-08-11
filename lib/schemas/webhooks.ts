@@ -49,6 +49,8 @@ export const createWebhookSourceSchema = z.object({
     })
     .optional(),
   secret: z.string().min(16).max(200).nullish(),
+  daily_new_contact_limit: z.number().int().min(1).max(10_000).default(30),
+  quota_timezone: z.string().min(1).max(100).default("UTC"),
 });
 export const updateWebhookSourceSchema = createWebhookSourceSchema.partial().extend({
   is_active: z.boolean().optional(),
