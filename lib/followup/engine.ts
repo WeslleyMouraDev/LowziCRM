@@ -60,6 +60,15 @@ export interface FollowupJobRequest {
     hint?: string;
     /** wait (mode 'smart') — Task 5.1: orientação opcional pro instante proposto. */
     guidance?: string;
+    /** action (mode 'media') — ativo privado canônico enviado sem LLM. */
+    media?: {
+      asset_path: string;
+      kind: 'image' | 'video' | 'audio' | 'document';
+      mime: string;
+      size_bytes: number;
+      filename?: string;
+      caption?: string;
+    };
   };
 }
 
@@ -158,6 +167,18 @@ function eventPayload(result: NodeResult): Record<string, unknown> {
 function turnPayloadExtras(node: FlowNode): Partial<FollowupJobRequest["payload"]> {
   if (node.type === "action" && node.config.mode === "ai_message") {
     return { prompt_hint: node.config.prompt_hint };
+  }
+  if (node.type === "action" && node.config.mode === "media") {
+    return {
+      media: {
+        asset_path: node.config.asset_path,
+        kind: node.config.kind,
+        mime: node.config.mime,
+        size_bytes: node.config.size_bytes,
+        ...(node.config.filename !== undefined ? { filename: node.config.filename } : {}),
+        ...(node.config.caption !== undefined ? { caption: node.config.caption } : {}),
+      },
+    };
   }
   if (node.type === "ai_classify") {
     return { classes: node.config.classes, ...(node.config.hint !== undefined ? { hint: node.config.hint } : {}) };

@@ -70,6 +70,13 @@ export interface SendMessageInput {
   seq: number;
   conversationId: string;
   body: string;
+  media?: {
+    type: 'image' | 'video' | 'audio' | 'document';
+    storagePath: string;
+    mime: string;
+    sizeBytes: number;
+    filename?: string;
+  };
   /**
    * Presente = envio de TEMPLATE. O `body` continua sendo o texto RENDERIZADO — é
    * ele que entra no hash de idempotência e é ele que os gates de conteúdo avaliaram.
@@ -92,7 +99,10 @@ export async function sendTurnMessage(
   cfg: CrmEdgeConfig,
   input: SendMessageInput,
 ): Promise<SendOutcome> {
-  const bodyHash = createHash('sha256').update(input.body).digest('hex');
+  const bodyHash = createHash('sha256')
+    .update(input.body)
+    .update(input.media ? JSON.stringify(input.media) : '')
+    .digest('hex');
   const ledger = await claimLedgerRow(db, input, bodyHash);
   if (ledger.shortCircuit) {
     return ledger.shortCircuit;
@@ -132,7 +142,15 @@ export async function sendTurnMessage(
               template_language: input.template.language,
               template_values: input.template.values,
             }
-          : { type: 'text' as const }),
+          : input.media
+            ? {
+                type: input.media.type,
+                media_storage_path: input.media.storagePath,
+                media_mime: input.media.mime,
+                media_size_bytes: input.media.sizeBytes,
+                ...(input.media.filename ? { media_filename: input.media.filename } : {}),
+              }
+            : { type: 'text' as const }),
         body: input.body,
         metadata: { idempotency_key: idempotencyKey },
       },

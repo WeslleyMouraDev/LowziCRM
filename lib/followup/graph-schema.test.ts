@@ -330,6 +330,27 @@ describe('graph-schema', () => {
         expect(result.success).toBe(false);
       });
     });
+
+    describe('media mode', () => {
+      it('accepts canonical private media asset', () => {
+        const result = actionConfigSchema.safeParse({
+          mode: 'media',
+          asset_path: '11111111-1111-4111-8111-111111111111/automation-assets/audio.mp3',
+          kind: 'audio',
+          mime: 'audio/mpeg',
+          size_bytes: 1234,
+          filename: 'audio.mp3',
+          caption: 'Lembrete curto',
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('rejects traversal and mismatched kind/mime', () => {
+        expect(actionConfigSchema.safeParse({
+          mode: 'media', asset_path: '../audio.mp3', kind: 'audio', mime: 'image/jpeg', size_bytes: 1234,
+        }).success).toBe(false);
+      });
+    });
   });
 
   describe('conditionConfigSchema', () => {

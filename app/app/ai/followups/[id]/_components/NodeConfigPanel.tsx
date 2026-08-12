@@ -506,7 +506,7 @@ function ActionForm({
   const [error, setError] = useState<string | null>(null);
 
   const commit = (next: {
-    mode: "ai_message" | "template";
+    mode: "ai_message" | "template" | "media";
     promptHint: string;
     fallbackTemplateId: string;
     templateId: string;
@@ -518,7 +518,11 @@ function ActionForm({
             prompt_hint: next.promptHint,
             ...(next.fallbackTemplateId.trim() ? { fallback_template_id: next.fallbackTemplateId } : {}),
           }
-        : { mode: "template" as const, template_id: next.templateId };
+        : next.mode === "template"
+          ? { mode: "template" as const, template_id: next.templateId }
+          : config.mode === "media"
+            ? config
+            : { mode: "media" as const, asset_path: "", kind: "audio" as const, mime: "audio/mpeg", size_bytes: 1 };
     const parsed = actionConfigSchema.safeParse(candidate);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Configuração inválida.");
@@ -535,7 +539,7 @@ function ActionForm({
         <Select
           value={mode}
           onValueChange={(v) => {
-            const next = v as "ai_message" | "template";
+            const next = v as "ai_message" | "template" | "media";
             setMode(next);
             commit({ mode: next, promptHint, fallbackTemplateId, templateId });
           }}
@@ -546,6 +550,7 @@ function ActionForm({
           <SelectContent>
             <SelectItem value="ai_message">Mensagem gerada por IA</SelectItem>
             <SelectItem value="template">Template fixo</SelectItem>
+            {config.mode === "media" && <SelectItem value="media">Mídia canônica</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -576,7 +581,7 @@ function ActionForm({
             />
           </div>
         </>
-      ) : (
+      ) : mode === "template" ? (
         <div className="space-y-2">
           <Label htmlFor="action-template-id">Template (UUID)</Label>
           <Input
@@ -588,6 +593,10 @@ function ActionForm({
             }}
           />
         </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Ativo privado canônico: {config.mode === "media" ? config.asset_path : ""}
+        </p>
       )}
       {error && <p className="text-xs text-error-fg">{error}</p>}
     </div>

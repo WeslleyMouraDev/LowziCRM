@@ -68,6 +68,14 @@ export const followupTurnPayloadSchema = z
     classes: z.array(z.string()).optional(),
     hint: z.string().optional(),
     guidance: z.string().optional(),
+    media: z.object({
+      asset_path: z.string().min(1),
+      kind: z.enum(['image', 'video', 'audio', 'document']),
+      mime: z.string().min(3),
+      size_bytes: z.number().int().positive(),
+      filename: z.string().optional(),
+      caption: z.string().optional(),
+    }).optional(),
   })
   .passthrough();
 
@@ -267,6 +275,7 @@ export function createFollowupTurnHandler(deps: FollowupTurnDeps) {
         classes: payload.classes,
         hint: payload.hint,
         guidance: payload.guidance,
+        media: payload.media,
       });
       return;
     }
@@ -330,6 +339,14 @@ async function runFlowDrivenTurn(
     classes: string[] | undefined;
     hint: string | undefined;
     guidance: string | undefined;
+    media: {
+      asset_path: string;
+      kind: 'image' | 'video' | 'audio' | 'document';
+      mime: string;
+      size_bytes: number;
+      filename?: string;
+      caption?: string;
+    } | undefined;
   },
 ): Promise<void> {
   if (input.nodeId === undefined || input.purpose === undefined) {
@@ -345,6 +362,13 @@ async function runFlowDrivenTurn(
   const runLog = withFields(deps.log, { job_id: job.id, tenant_id: target.tenantId, lead_id: target.leadId, enrollment_id: enrollmentId });
 
   if (input.purpose === 'send_message') {
+    if (input.media !== undefined) {
+      const completed = await runFlowMediaAction(deps, job, pool, ctx, clock, target, input.media);
+      if (completed) {
+        await complete(pool, { organizationId: target.tenantId, enrollmentId, nodeId, result: { kind: 'sent' } });
+      }
+      return;
+    }
     await runAgentTurn(deps, job, pool, ctx, {
       channelSessionId: target.channelSessionId,
       conversationId: target.conversationId,
@@ -404,6 +428,90 @@ async function runFlowDrivenTurn(
     { ...(deps.registry !== undefined ? { registry: deps.registry } : {}), log: runLog, clock },
   );
   await complete(pool, { organizationId: target.tenantId, enrollmentId, nodeId, result: { kind: 'timing', proposed_at: proposedAt } });
+}
+
+async function runFlowMediaAction(
+  deps: FollowupTurnDeps,
+  job: JobRow,
+  pool: pg.Pool,
+  ctx: { workerId: string },
+  clock: () => Date,
+  target: ReentrySendTarget,
+  media: {
+    asset_path: string;
+    kind: 'image' | 'video' | 'audio' | 'document';
+    mime: string;
+    size_bytes: number;
+    filename?: string;
+    caption?: string;
+  },
+): Promise<boolean> {
+  const { tenantId, leadId, channelSessionId, conversationId } = target;
+  const runLog = withFields(deps.log, { job_id: job.id, tenant_id: tenantId, lead_id: leadId });
+  if (await isLeadInHandoff(pool, tenantId, leadId)) return false;
+
+  const context = await getLeadContext(pool, deps.crmCfg, { tenantId, leadId }, {
+    historyLimit: deps.knobs.historyLimit,
+    maxTokens: deps.knobs.maxContextTokens,
+  });
+  if (!context.ok) throw new Error(`envio de mídia do fluxo falhou em get_lead_context (${context.error.code})`);
+
+  const body = media.caption ?? media.filename ?? 'Mídia do atendimento';
+  const channel = (deps.channel ?? ((p: pg.Pool) => new WahaChannelAdapter(p, deps.crmCfg)))(pool);
+  const chain = await runBeforeSend({
+    pool,
+    log: runLog,
+    tenantId,
+    leadId,
+    jobId: job.id,
+    channelSessionId,
+    body,
+    optedOutThisTurn: context.context.contact.is_blocked,
+    crmDailyLimit: null,
+    now: clock(),
+    sleep: deps.sleep,
+    lgpd: context.lgpd,
+    ...(deps.knobs.disclosureMode !== undefined ? { disclosureMode: deps.knobs.disclosureMode } : {}),
+    send: (finalBody) => channel.send({
+      tenantId,
+      leadId,
+      jobId: job.id,
+      seq: 1,
+      conversationId,
+      body: finalBody,
+      media: {
+        type: media.kind,
+        storagePath: media.asset_path,
+        mime: media.mime,
+        sizeBytes: media.size_bytes,
+        ...(media.filename !== undefined ? { filename: media.filename } : {}),
+      },
+    }),
+  });
+
+  if (chain.status === 'vetoed') {
+    if (chain.code === 'outside_window' && chain.nextAllowedAt !== undefined) {
+      await rescheduleReentry(pool, { tenantId, leadId, jobId: job.id, at: chain.nextAllowedAt, payload: job.payload });
+      return false;
+    }
+    throw new Error(`envio de mídia vetado: ${chain.code}`);
+  }
+
+  switch (chain.outcome.kind) {
+    case 'sent':
+    case 'already_sent':
+    case 'queued':
+      return true;
+    case 'blocked':
+      await applySendOutcome(pool, chain.outcome, { jobId: job.id, workerId: ctx.workerId, tenantId, leadId }, {
+        queuedRetryDelayMs: deps.knobs.queuedRetryDelayMs,
+      });
+      throw new JobSettledError('mídia vetada pelo sink (is_blocked)');
+    case 'failed':
+      throw new Error('CRM marcou o envio de mídia como failed');
+    case 'unavailable':
+      throw new Error(`canal indisponível (${chain.outcome.reason})`);
+  }
 }
 
 /**

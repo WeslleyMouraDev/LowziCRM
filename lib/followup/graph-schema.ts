@@ -69,6 +69,22 @@ export const actionConfigSchema = z.discriminatedUnion('mode', [
     mode: z.literal('template'),
     template_id: z.string().uuid(),
   }),
+  z.strictObject({
+    mode: z.literal('media'),
+    asset_path: z.string().min(1).max(500).refine((value) => !value.includes('..') && /^[0-9a-f-]{36}\/automation-assets\//i.test(value), 'asset_path must be an organization-owned automation asset'),
+    kind: z.enum(['image', 'video', 'audio', 'document']),
+    mime: z.string().min(3).max(150),
+    size_bytes: z.number().int().positive().max(50 * 1024 * 1024),
+    filename: z.string().min(1).max(255).optional(),
+    caption: z.string().max(2000).optional(),
+  }).superRefine((media, ctx) => {
+    const compatible =
+      (media.kind === 'image' && media.mime.startsWith('image/')) ||
+      (media.kind === 'video' && media.mime.startsWith('video/')) ||
+      (media.kind === 'audio' && media.mime.startsWith('audio/')) ||
+      (media.kind === 'document' && !media.mime.startsWith('image/') && !media.mime.startsWith('video/') && !media.mime.startsWith('audio/'));
+    if (!compatible) ctx.addIssue({ code: 'custom', path: ['mime'], message: 'mime is incompatible with kind' });
+  }),
 ]);
 
 /**

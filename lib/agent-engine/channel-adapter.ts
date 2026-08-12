@@ -22,6 +22,14 @@ export interface ChannelSendInput {
   /** referência da conversa no canal (conversation_id do CRM na v1) */
   conversationId: string;
   body: string;
+  /** Ativo privado canônico; o adapter concreto preserva o caminho no sink do CRM. */
+  media?: {
+    type: 'image' | 'video' | 'audio' | 'document';
+    storagePath: string;
+    mime: string;
+    sizeBytes: number;
+    filename?: string;
+  };
   /**
    * Presente = este envio é um TEMPLATE aprovado, não texto livre.
    *
