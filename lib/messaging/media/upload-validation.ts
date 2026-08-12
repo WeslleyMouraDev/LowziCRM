@@ -17,6 +17,18 @@ export function isMediaPathOwnedBy(path: string, orgId: string, conversationId: 
   return path.startsWith(`${orgId}/${conversationId}/`);
 }
 
+/**
+ * Ativos canônicos de automação pertencem à organização, não a uma conversa
+ * específica. Mantemos um prefixo fechado para não transformar qualquer objeto
+ * da organização em anexo enviável.
+ */
+export function isMediaPathAccessibleBy(path: string, orgId: string, conversationId: string): boolean {
+  return (
+    isMediaPathOwnedBy(path, orgId, conversationId) ||
+    path.startsWith(`${orgId}/automation-assets/`)
+  );
+}
+
 const DOCUMENT_MIMES = new Set([
   "application/pdf",
   "application/msword",

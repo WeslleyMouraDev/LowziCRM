@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateOutboundMedia } from "@/lib/messaging/media/upload-validation";
+import {
+  isMediaPathAccessibleBy,
+  validateOutboundMedia,
+} from "@/lib/messaging/media/upload-validation";
 
 describe("validateOutboundMedia", () => {
   it("classifica mimes suportados no kind certo", () => {
@@ -26,5 +29,20 @@ describe("validateOutboundMedia", () => {
     const r = validateOutboundMedia("image/jpeg", 0);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("validation_failed");
+  });
+});
+
+describe("isMediaPathAccessibleBy", () => {
+  const org = "11111111-1111-4111-8111-111111111111";
+  const conversation = "22222222-2222-4222-8222-222222222222";
+
+  it("aceita mídia da conversa e ativo canônico da própria organização", () => {
+    expect(isMediaPathAccessibleBy(`${org}/${conversation}/arquivo.pdf`, org, conversation)).toBe(true);
+    expect(isMediaPathAccessibleBy(`${org}/automation-assets/produto.pdf`, org, conversation)).toBe(true);
+  });
+
+  it("rejeita ativo de outra organização e prefixos parecidos", () => {
+    expect(isMediaPathAccessibleBy(`outra/automation-assets/produto.pdf`, org, conversation)).toBe(false);
+    expect(isMediaPathAccessibleBy(`${org}-evil/automation-assets/produto.pdf`, org, conversation)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
@@ -9,7 +9,7 @@ import { ensureConversation } from "@/lib/automation/start-conversation";
 import type { ActionCtx } from "@/lib/automation/types";
 import type { EventRow } from "@/lib/event-log/dispatcher";
 import "@/lib/automation/actions/register-all";
-import { GOV_ORG, seedGov, sql, lastLine } from "./gov-helpers";
+import { GOV_AGENT_A, GOV_ORG, seedGov, sql, lastLine } from "./gov-helpers";
 
 /**
  * Task 11 (spec webhooks/automação 2026-07-17) — ação send_whatsapp_message +
@@ -314,6 +314,13 @@ beforeAll(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  // O invariante nunca toca o WAHA real, mesmo quando o ambiente de desenvolvimento
+  // tem credenciais carregadas.
+  vi.stubEnv("WAHA_API_KEY", "");
 });
 
 function baseCtx(overrides: Partial<ActionCtx> = {}): ActionCtx {
@@ -406,7 +413,7 @@ describe("send_whatsapp_message — contato bloqueado (Task 11)", () => {
     const before = rows(`select id from public.messages where contact_id = '${CONTACT_BLOCKED_ID}'`).length;
     const executor = getAction("send_whatsapp_message")!;
     const ctx = baseCtx({
-      context: { contact: { id: CONTACT_BLOCKED_ID, is_blocked: true, phone_number: "+5511999990002", name: "Bloqueado" } },
+      context: { contact: { id: CONTACT_BLOCKED_ID, is_blocked: true, phone_number: "+551****0002", name: "Bloqueado" } },
     });
     const result = await executor.execute(ctx, {
       channel_session_id: SESSION_ID,
@@ -417,5 +424,83 @@ describe("send_whatsapp_message — contato bloqueado (Task 11)", () => {
     expect(result.detail?.reason).toBe("contact_blocked");
     const after = rows(`select id from public.messages where contact_id = '${CONTACT_BLOCKED_ID}'`).length;
     expect(after).toBe(before);
+  });
+});
+
+describe("send_whatsapp_message — mídia canônica (Task 6)", () => {
+  it("6. envia documento canônico com tipo, mime e path da organização", async () => {
+    const executor = getAction("send_whatsapp_message")!;
+    const eventId = lastLine(sql(`select gen_random_uuid();`));
+    const ctx = baseCtx({
+      event: { id: eventId } as unknown as EventRow,
+      context: { contact: { id: CONTACT_ID, is_blocked: false, phone_number: "+551****0001", name: "Ana" } },
+    });
+    const result = await executor.execute(ctx, {
+      channel_session_id: SESSION_ID,
+      media: {
+        kind: "document",
+        asset_path: `${GOV_ORG}/automation-assets/produto.pdf`,
+        mime: "application/pdf",
+        size_bytes: 1234,
+        caption_template: "Material de {{contact.name}}",
+        sequence_key: "produto-principal",
+      },
+    });
+    expect(result.status).toBe("success");
+    const found = rows(`select type,body,media_storage_path,media_mime from public.messages where id='${String(result.detail?.message_id)}'`);
+    expect(found[0]).toMatchObject({
+      type: "document",
+      body: "Material de Ana",
+      media_storage_path: `${GOV_ORG}/automation-assets/produto.pdf`,
+      media_mime: "application/pdf",
+    });
+  });
+
+  it("7. retry do mesmo evento e sequence_key não cria segunda mensagem", async () => {
+    const executor = getAction("send_whatsapp_message")!;
+    const eventId = lastLine(sql(`select gen_random_uuid();`));
+    const ctx = baseCtx({
+      event: { id: eventId } as unknown as EventRow,
+      context: { contact: { id: CONTACT_ID, is_blocked: false, phone_number: "+551****0001" } },
+    });
+    const config = {
+      channel_session_id: SESSION_ID,
+      media: {
+        kind: "audio",
+        asset_path: `${GOV_ORG}/automation-assets/audio-1.mp3`,
+        mime: "audio/mpeg",
+        size_bytes: 999,
+        sequence_key: "audio-1",
+      },
+    };
+    const first = await executor.execute(ctx, config);
+    const second = await executor.execute(ctx, config);
+    expect(first.status).toBe("success");
+    expect(second.status).toBe("skipped");
+    expect(second.detail?.reason).toBe("idempotent_replay");
+  });
+
+  it("8. não envia quando conversa está assumida por humano", async () => {
+    const executor = getAction("send_whatsapp_message")!;
+    const conversationId = await ensureConversation(admin, GOV_ORG, CONTACT_ID, SESSION_ID);
+    sql(`update public.conversations set assigned_to_user_id='${GOV_AGENT_A}' where id='${conversationId}';`);
+    try {
+      const result = await executor.execute(baseCtx({
+        context: { contact: { id: CONTACT_ID, is_blocked: false, phone_number: "+551****0001" } },
+      }), {
+        channel_session_id: SESSION_ID,
+        media: {
+          kind: "image",
+          asset_path: `${GOV_ORG}/automation-assets/criativo.jpg`,
+          mime: "image/jpeg",
+          size_bytes: 500,
+          sequence_key: "criativo",
+        },
+      });
+      expect(result.status).toBe("skipped");
+      expect(result.detail?.reason).toBe("human_attending");
+    } finally {
+      sql(`update public.conversations set assigned_to_user_id=null where id='${conversationId}';`);
+    }
   });
 });

@@ -19,7 +19,7 @@ import {
   type ChannelSessionRef,
 } from "@/lib/channels";
 import { ARCHIVED_AT, queryTolerantToMissingArchived } from "@/lib/channels/archived";
-import { isMediaPathOwnedBy } from "@/lib/messaging/media/upload-validation";
+import { isMediaPathAccessibleBy } from "@/lib/messaging/media/upload-validation";
 import type { ListMessagesQuery, SendMessageInput } from "@/lib/schemas";
 import { sendTemplateForSession } from "@/lib/channels/meta/send-template-for-session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -275,7 +275,7 @@ export async function sendMessageHandler(
     );
   }
 
-  if (input.media_storage_path && !isMediaPathOwnedBy(input.media_storage_path, c.organization_id, c.id)) {
+  if (input.media_storage_path && !isMediaPathAccessibleBy(input.media_storage_path, c.organization_id, c.id)) {
     throw new ApiError(
       422,
       "invalid_media_path",

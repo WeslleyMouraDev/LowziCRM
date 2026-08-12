@@ -58,6 +58,19 @@ describe("createAutomationRuleSchema", () => {
     const actionCases = [
       { type: "create_or_move_lead", config: { pipeline_id: UUID, stage_id: UUID2 } },
       { type: "send_whatsapp_message", config: { channel_session_id: UUID, template: "Oi!" } },
+      {
+        type: "send_whatsapp_message",
+        config: {
+          channel_session_id: UUID,
+          media: {
+            asset_path: `${UUID}/automation-assets/criativo.jpg`,
+            kind: "image",
+            mime: "image/jpeg",
+            size_bytes: 1234,
+            caption_template: "Olá {{contact.name}}",
+          },
+        },
+      },
       { type: "add_tag", config: { tags: ["vip"] } },
       { type: "assign_owner", config: { user_id: UUID } },
       { type: "call_webhook", config: { url: "https://example.com/hook" } },
@@ -73,6 +86,26 @@ describe("createAutomationRuleSchema", () => {
       name: "Regra",
       trigger_event: "lead.deleted",
       actions: [{ type: "add_tag", config: { tags: ["x"] } }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects media kind incompatible with MIME", () => {
+    const r = createAutomationRuleSchema.safeParse({
+      name: "Regra mídia",
+      trigger_event: "lead.created",
+      actions: [{
+        type: "send_whatsapp_message",
+        config: {
+          channel_session_id: UUID,
+          media: {
+            asset_path: `${UUID}/automation-assets/arquivo.pdf`,
+            kind: "image",
+            mime: "application/pdf",
+            size_bytes: 100,
+          },
+        },
+      }],
     });
     expect(r.success).toBe(false);
   });
