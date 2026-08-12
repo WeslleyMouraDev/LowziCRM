@@ -57,7 +57,7 @@ describe("createAutomationRuleSchema", () => {
     };
     const actionCases = [
       { type: "create_or_move_lead", config: { pipeline_id: UUID, stage_id: UUID2 } },
-      { type: "send_whatsapp_message", config: { channel_session_id: UUID, template: "Oi!" } },
+      { type: "send_whatsapp_message", config: { channel_session_id: UUID, template: "Oi!", sequence_key: "primeiro-toque" } },
       {
         type: "send_whatsapp_message",
         config: {

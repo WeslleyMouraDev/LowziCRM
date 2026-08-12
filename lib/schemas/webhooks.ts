@@ -43,6 +43,7 @@ const sendWhatsappConfigSchema = z
   .object({
     channel_session_id: z.string().uuid(),
     template: z.string().min(1).max(2000).optional(),
+    sequence_key: z.string().min(1).max(120).optional(),
     media: automationMediaSchema.optional(),
   })
   .refine((config) => Boolean(config.template || config.media), {
